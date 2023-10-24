@@ -1,37 +1,39 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
-
 use image::io::Reader as ImageReader;
-use image::GenericImageView;
 use std::io::Cursor;
 
-#[get("/img/{name}/w_{width}/h_{height}")]
-async fn image_handler(info: web::Path<(String, Option<u32>, Option<u32>)>) -> impl Responder {
-    let name = &info.0;
-    let width = info.1.unwrap_or(0);
-    let height = info.2.unwrap_or(0);
+#[get("/img/{name}")]
+async fn original_image_handler(info: web::Path<String>) -> impl Responder {
+    let name = &info;
 
     let img = ImageReader::open(format!("images/{}", name))
         .unwrap()
         .decode()
         .unwrap();
 
-    let (img_width, img_height) = img.dimensions();
+    let mut buf = Cursor::new(Vec::new());
+    img.write_to(&mut buf, image::ImageOutputFormat::Png)
+        .unwrap();
 
-    let width = if width == 0 {
-        img_width
-    } else if width < 200 || width > img_width {
-        img_width
-    } else {
-        width
-    };
+    HttpResponse::Ok()
+        .content_type("image/png")
+        .body(buf.into_inner())
+}
 
-    let height = if height == 0 {
-        img_height
-    } else if height < 200 || height > img_height {
-        img_height
-    } else {
-        height
-    };
+#[get("/img/{name}/w_{width}/h_{height}")]
+async fn resized_image_handler(info: web::Path<(String, u32, u32)>) -> impl Responder {
+    let name = &info.0;
+    let width = info.1;
+    let height = info.2;
+
+    let img = ImageReader::open(format!("images/{}", name))
+        .unwrap()
+        .decode()
+        .unwrap();
+
+    if width > img.width() || height > img.height() {
+        return HttpResponse::BadRequest().body("Requested dimensions exceed original image size");
+    }
 
     let img = img.resize(width, height, image::imageops::FilterType::Triangle);
 
@@ -46,7 +48,7 @@ async fn image_handler(info: web::Path<(String, Option<u32>, Option<u32>)>) -> i
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().service(image_handler))
+    HttpServer::new(|| App::new().service(original_image_handler).service(resized_image_handler))
         .bind(("127.0.0.1", 8080))?
         .run()
         .await
