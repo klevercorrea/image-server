@@ -1,12 +1,14 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use image::io::Reader as ImageReader;
 use std::io::Cursor;
+use std::env;
 
 #[get("/img/{name}")]
 async fn original_image_handler(info: web::Path<String>) -> impl Responder {
     let name = &info;
+    let images_path = env::var("IMAGES_PATH").unwrap_or_else(|_| String::from("images"));
 
-    let img = ImageReader::open(format!("images/{}", name))
+    let img = ImageReader::open(format!("{}/{}", images_path, name))
         .unwrap()
         .decode()
         .unwrap();
@@ -25,8 +27,9 @@ async fn resized_image_handler(info: web::Path<(String, u32, u32)>) -> impl Resp
     let name = &info.0;
     let width = info.1;
     let height = info.2;
+    let images_path = env::var("IMAGES_PATH").unwrap_or_else(|_| String::from("images"));
 
-    let img = ImageReader::open(format!("images/{}", name))
+    let img = ImageReader::open(format!("{}/{}", images_path, name))
         .unwrap()
         .decode()
         .unwrap();
