@@ -52,7 +52,7 @@ async fn resized_image_handler(info: web::Path<(String, u32, u32)>) -> impl Resp
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| App::new().service(original_image_handler).service(resized_image_handler))
-        .bind(("127.0.0.1", 8080))?
+        .bind(("0.0.0.0", 8080))?
         .run()
         .await
 }
